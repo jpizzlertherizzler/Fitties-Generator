@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FITTIES GENERATOR</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
+
+        body {
+            font-family: 'Anton', sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        #title-container {
+            margin-top: 50px;
+        }
+
+        h1 {
+            margin: 20px 0;
+        }
+
+        .creator-text {
+            font-size: 16px;
+            margin: 10px 0;
+        }
+
+        .generate-button {
+            background-color: black;
+            color: white;
+            font-size: 18px;
+            margin: 20px 0;
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            font-family: 'Anton', sans-serif;
+        }
+
+        #outfit {
+            display: none;
+            margin-top: 20px;
+        }
+
+        img {
+            max-width: 200px;
+            height: auto;
+        }
+
+        .keep-button {
+            background-color: gray;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-family: 'Anton', sans-serif;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .keep-button.kept {
+            background-color: green;
+            color: white;
+        }
+
+        .outfit-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        .outfit-section {
+            margin-bottom: 20px;
+        }
+
+        .addedby {
+            font-size: 14px;
+            margin: 10px 0;
+        }
+
+        #header {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: white;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            padding: 10px 0;
+        }
+
+        #header h1, #header .creator-text {
+            margin: 0;
+        }
+
+        #header .generate-button {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>FITTIES GENERATOR</h1>
+        <div class="creator-text">CREATED BY JPZEE</div>
+        <button class="generate-button" onclick="generateOutfit()">GENERATE AGAIN</button>
+    </div>
+
+    <div id="title-container">
+        <h1>FITTIES GENERATOR</h1>
+        <div class="creator-text">CREATED BY JPZEE</div>
+        <button id="start-button" class="generate-button" onclick="startGenerator()">GENERATE FIT</button>
+    </div>
+
+    <div id="outfit"></div>
+
+    <script>
+        let data = [];
+        let lastUsed = {};
+        let keptItems = {};
+
+        // Fetch the outfit data from the server
+        async function fetchData() {
+            const response = await fetch('/sheet.tsv');
+            const text = await response.text();
+            return text.split('\n').slice(1).map(line => {
+                const [type, imageurl, producturl, addedby] = line.split('\t').map(cell => cell.trim());
+                return { type, imageurl, producturl, addedby };
+            });
+        }
+
+        // Initialize data and variables on page load
+        window.onload = async () => {
+            data = await fetchData();
+            initializeLastUsedAndKeptItems();
+        };
+
+        function initializeLastUsedAndKeptItems() {
+            const types = ['hat', 'bracelet', 'necklace', 'top', 'belt', 'pants', 'shoes', 'glasses'];
+            lastUsed = Object.fromEntries(types.map(type => [type, null]));
+            keptItems = Object.fromEntries(types.map(type => [type, false]));
+        }
+
+        // Start generator and show outfit section
+        function startGenerator() {
+            document.getElementById('title-container').style.display = 'none';
+            document.getElementById('header').style.display = 'block';
+            document.getElementById('outfit').style.display = 'block';
+            generateOutfit();
+        }
+
+        // Function to get a random item of a specific type without immediate repetition
+        function getRandomItem(type) {
+            const items = data.filter(item => item.type === type);
+            if (items.length === 0) return null;
+
+            const filteredItems = items.filter(item => item !== lastUsed[type]);
+            const pool = filteredItems.length > 0 ? filteredItems : items;
+
+            const randomItem = pool[Math.floor(Math.random() * pool.length)];
+            lastUsed[type] = randomItem;
+            return randomItem;
+        }
+
+        // Function to toggle the "keep" state of an item
+        function toggleKeep(type) {
+            keptItems[type] = !keptItems[type];
+            const button = document.getElementById(`${type}-keep-button`);
+            button.textContent = keptItems[type] ? 'KEPT' : 'KEEP ITEM';
+            button.classList.toggle('kept', keptItems[type]);
+        }
+
+        // Generate and display a random outfit
+        function generateOutfit() {
+            if (data.length === 0) {
+                alert('Data is still loading, please try again in a moment.');
+                return;
+            }
+
+            const types = ['hat', 'bracelet', 'necklace', 'top', 'belt', 'pants', 'shoes', 'glasses'];
+            const outfitItems = types.map(type => ({
+                type,
+                item: keptItems[type] ? lastUsed[type] : getRandomItem(type)
+            }));
+
+            const outfitDiv = document.getElementById('outfit');
+            outfitDiv.innerHTML = `
+                <div class="outfit-container">
+                    ${outfitItems.map(({ type, item }) => item ? `
+                        <div class="outfit-section">
+                            <h2>${type.charAt(0).toUpperCase() + type.slice(1)}</h2>
+                            <a href="${item.producturl}" target="_blank"><img src="${item.imageurl}" alt="${type}"></a>
+                            <div class="addedby">ADDED BY: ${item.addedby}</div>
+                            <button id="${type}-keep-button" class="keep-button ${keptItems[type] ? 'kept' : ''}" onclick="toggleKeep('${type}')">
+                                ${keptItems[type] ? 'KEPT' : 'KEEP ITEM'}
+                            </button>
+                        </div>
+                    ` : '').join('')}
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
